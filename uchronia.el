@@ -41,28 +41,27 @@
   '((t :inherit font-lock-keyword-face))
   "Face used to highlight commands in `uchronia-select'.")
 
-(defcustom uchronia-prefer-input-history
+(defcustom uchronia-input-commands
   '(switch-to-buffer)
-  "Commands which prefer the input history."
+  "Commands which should use the input history."
   :type 'list)
 
-(defcustom uchronia-input-history-prefix
-  "uchronia-input-history/"
-  "Prefix used for names of input histories."
-  :type 'string)
+(defcustom uchronia-input-histories
+  '(buffer-name-history)
+  "Histories which should store the input."
+  :type 'list)
 
 (defcustom uchronia-filter
   "^uchronia-\\|^execute-extended-command$\\|^exit-minibuffer$"
   "Filter commands from the uchronia command history."
   :type 'regexp)
 
-(defvar uchronia-command-history nil)
-(add-to-list 'savehist-minibuffer-history-variables 'uchronia-command-history)
+(defvar uchronia-history nil)
+(add-to-list 'savehist-minibuffer-history-variables 'uchronia-history)
 
 (defvar-local uchronia--last-input nil)
 (defvar-local uchronia--last-command nil)
 (defvar-local uchronia--last-history nil)
-(defvar-local uchronia--toggle nil)
 
 ;;;###autoload
 (define-minor-mode uchronia-mode
@@ -82,9 +81,7 @@
 (defun uchronia--minibuffer-setup ()
   "Setup minibuffer hook of uchronia."
   (setq uchronia--last-command this-command)
-  (add-hook 'post-command-hook #'uchronia--record-input nil t)
-  (when (memq uchronia--last-command uchronia-prefer-input-history)
-    (uchronia-toggle t)))
+  (add-hook 'post-command-hook #'uchronia--record-input nil t))
 
 (defun uchronia--minibuffer-exit ()
   "Exit minibuffer hook of uchronia."
@@ -93,9 +90,6 @@
            (cand (minibuffer-contents-no-properties))
            (cmd uchronia--last-command)
            (input uchronia--last-input))
-      ;; Restore history if it has been toggled
-      (when uchronia--toggle
-        (set hist (car uchronia--toggle)))
       (run-at-time
        0 nil
        (lambda ()
@@ -104,26 +98,29 @@
            ;; TODO Is there a better way?
            ;; TODO Change this such that aborted sessions can also be repeated?
            (when (string= (car hist-val) cand)
+             ;; Remove selected candidate from history and store input
+             (when (or (memq cmd uchronia-input-commands)
+                       (memq hist uchronia-input-histories))
+               (set hist (cdr hist-val))
+               (add-to-history hist input))
+
              ;; Store command history
              (unless (string-match-p uchronia-filter (symbol-name cmd))
                (let ((elem (cons cmd input)))
-                 (unless (equal elem (car uchronia-command-history))
-                   (add-to-history 'uchronia-command-history elem))))
-
-             ;; Store input history
-             (add-to-history (uchronia--input-history hist) input))))))))
+                 (unless (equal elem (car uchronia-history))
+                   (add-to-history 'uchronia-history elem)))))))))))
 
 (defun uchronia-repeat (elem)
   "Repeat command history ELEM."
   (interactive
    (list
-    (if-let (elem (car uchronia-command-history))
+    (if-let (elem (car uchronia-history))
         elem
       (error "Command history is empty"))))
   ;; This should not happen due to uchronia-filter, but just check to be sure.
   (when (eq (car elem) #'uchronia-repeat)
     (error "Cannot repeat `uchronia-repeat'"))
-  (uchronia--check)
+  (unless uchronia-mode (error "Uchronia mode is not enabled"))
   (minibuffer-with-setup-hook
       (lambda () (insert (cdr elem)))
     (command-execute (car elem))))
@@ -131,7 +128,7 @@
 (defun uchronia-select ()
   "Select from uchronia command history and call `uchronia-repeat'."
   (interactive)
-  (uchronia--check)
+  (unless uchronia-mode (error "Uchronia mode is not enabled"))
   (let ((cands (or
                 (delete-dups
                  (mapcar (lambda (elem)
@@ -140,39 +137,9 @@
                                               'face 'uchronia-command)
                                   " " (cdr elem))
                                  elem))
-                         uchronia-command-history))
+                         uchronia-history))
                 (error "Command history is empty"))))
     (uchronia-repeat (cdr (assoc (completing-read "History: " cands nil t nil t) cands)))))
-
-(defun uchronia-toggle (&optional quiet)
-  "Toggle between input and candidate history.
-
-If QUIET is t do not print a message."
-  (interactive)
-  (uchronia--check)
-  (unless (minibufferp)
-    (error "Not in the minibuffer"))
-  (unless (eq minibuffer-history-variable t)
-    (if uchronia--toggle
-        (progn
-          (set minibuffer-history-variable (car uchronia--toggle))
-          (setq uchronia--toggle nil))
-      (setq uchronia--toggle (list (symbol-value minibuffer-history-variable)))
-      (set minibuffer-history-variable (symbol-value (uchronia--input-history minibuffer-history-variable))))
-    (unless quiet
-      (minibuffer-message "Using %s history" (if uchronia--toggle "input" "candidate")))))
-
-(defun uchronia--input-history (hist)
-  "Return corresponding input history of HIST."
-  (let ((sym (intern (concat uchronia-input-history-prefix (symbol-name hist)))))
-    (unless (boundp sym)
-      (set sym nil))
-    (add-to-list 'savehist-minibuffer-history-variables sym)
-    sym))
-
-(defun uchronia--check ()
-  "Check that uchronia-mode is enabled."
-  (unless uchronia-mode (error "Uchronia mode is not enabled")))
 
 (provide 'uchronia)
 ;;; uchronia.el ends here
