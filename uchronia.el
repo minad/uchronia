@@ -71,22 +71,19 @@
   "Exit minibuffer hook of uchronia."
   (let* ((cand (minibuffer-contents-no-properties))
          (cmd uchronia--last-command)
-         (input uchronia--last-input))
-    (run-at-time
-     0 nil
-     (lambda ()
-       ;; Store command history
-       (unless (string-match-p (string-join
-                                (mapcar (lambda (x)
-                                          (if (stringp x)
-                                              x
-                                            (format "\\`%s\\'" x)))
-                                        uchronia-filter)
-                                "\\|")
-                               (symbol-name cmd))
-         (let ((elem (list cmd input cand)))
-           (unless (equal elem (car uchronia-history))
-             (add-to-history 'uchronia-history elem))))))))
+         (input uchronia--last-input)
+         (elem (list cmd input cand)))
+    ;; Store command history
+    (unless (string-match-p (string-join
+                             (mapcar (lambda (x)
+                                       (if (stringp x)
+                                           x
+                                         (format "\\`%s\\'" x)))
+                                     uchronia-filter)
+                             "\\|")
+                            (symbol-name cmd))
+      (unless (equal elem (car uchronia-history))
+        (add-to-history 'uchronia-history elem)))))
 
 (defun uchronia-repeat (elem)
   "Repeat command history ELEM."
