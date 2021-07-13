@@ -1,5 +1,10 @@
 * uchronia.el - Rewrite the minibuffer history
 
+*NOTE*: This package has been superseded by the ~vertico-repeat~ extension of my
+[[https://github.com/minad/vertico][Vertico]] completion UI. The ~vertico-repeat~ command is Vertico-specific, but more
+powerful since it also stores the currently selected candidate. Therefore I
+recommend ~vertico-repeat~ over Uchronia.
+
 This small unreleased package provides the ~uchronia-mode~ which stores the
 history for every minibuffer and completion command. The last recent minibuffer
 session can then be restarted using ~uchronia-repeat~. Furthermore one can
