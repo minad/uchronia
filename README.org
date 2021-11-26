@@ -1,5 +1,7 @@
 * uchronia.el - Rewrite the minibuffer history
 
+#+html: <a href="https://www.gnu.org/software/emacs/"><img alt="GNU Emacs" src="https://github.com/minad/corfu/blob/screenshots/emacs.svg?raw=true"/></a>
+
 *NOTE*: This package has been superseded by the ~vertico-repeat~ extension of my
 [[https://github.com/minad/vertico][Vertico]] completion UI. The ~vertico-repeat~ command is Vertico-specific, but more
 powerful since it also stores the currently selected candidate. Therefore I
